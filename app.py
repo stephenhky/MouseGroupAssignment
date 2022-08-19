@@ -61,7 +61,7 @@ if selected_page == 'Self-input Parameters':
 elif selected_page == 'Upload File':
     uploaded_file = st.file_uploader("Choose a file")
     if uploaded_file is not None:
-        df = pd.read_excel(uploaded_file)
+        df = pd.read_excel(uploaded_file, engine='openpyxl')
         idcolname = df.columns[0]
         valcolname = df.columns[1]
         nbdata = len(df)
@@ -74,23 +74,20 @@ elif selected_page == 'Upload File':
         )
         assignments = randomy_assign_groups(nbdata, nbmembers_pergroup)
 
-    api_url = "https://pdihs60tm3.execute-api.us-east-1.amazonaws.com/default/excel_generator_lambda"
-    payload = json.dumps({
-        "dataframe": {
-            df.columns[0]: df[df.columns[0]],
-            df.columns[1]: df[df.columns[1]],
-            'groups': assignments
+        df['groups'] = assignments
+        api_url = "https://pdihs60tm3.execute-api.us-east-1.amazonaws.com/default/excel_generator_lambda"
+        payload = json.dumps({
+            "dataframe": df.to_dict(orient='list')
+        })
+        headers = {
+            'Content-Type': 'application/json'
         }
-    })
-    headers = {
-        'Content-Type': 'application/json'
-    }
-    response = requests.request("POST", api_url, headers=headers, data=payload)
-    response_dict = json.loads(response.text)
-    print(response.text)
-    url = response_dict['url']
-    st.markdown('[Download Excel]({})'.format(url))
-    st.dataframe(df)
+        response = requests.request("POST", api_url, headers=headers, data=payload)
+        response_dict = json.loads(response.text)
+        print(response.text)
+        url = response_dict['url']
+        st.markdown('[Download Excel]({})'.format(url))
+        st.dataframe(df)
 
 else:
     pass
