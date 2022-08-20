@@ -8,6 +8,7 @@ import numpy as np
 import pandas as pd
 import streamlit as st
 import requests
+from matplotlib import pyplot as plt
 
 
 def randomy_assign_groups(nbdata, nbmembers_pergroup):
@@ -27,6 +28,19 @@ def randomy_assign_groups(nbdata, nbmembers_pergroup):
     return assignments
 
 
+def generate_excel_file(df):
+    api_url = "https://pdihs60tm3.execute-api.us-east-1.amazonaws.com/default/excel_generator_lambda"
+    payload = json.dumps({
+        "dataframe": df.to_dict(orient='list')
+    })
+    headers = {
+        'Content-Type': 'application/json'
+    }
+    response = requests.request("POST", api_url, headers=headers, data=payload)
+    response_dict = json.loads(response.text)
+    return response_dict
+
+
 # Headers
 st.header('Group Assignment')
 
@@ -43,17 +57,7 @@ if selected_page == 'Self-input Parameters':
             'groups': randomy_assign_groups(nbdata, nbmembers_pergroup)
         })
         df = df.sort_values(['groups', 'ID'], ascending=True)
-
-        api_url = "https://pdihs60tm3.execute-api.us-east-1.amazonaws.com/default/excel_generator_lambda"
-        payload = json.dumps({
-            "dataframe": df.to_dict(orient='list')
-        })
-        headers = {
-            'Content-Type': 'application/json'
-        }
-        response = requests.request("POST", api_url, headers=headers, data=payload)
-        response_dict = json.loads(response.text)
-        print(response.text)
+        response_dict = generate_excel_file(df)
         url = response_dict['url']
         st.markdown('[Download Excel]({})'.format(url))
         st.dataframe(df)
@@ -65,6 +69,7 @@ elif selected_page == 'Upload File':
         idcolname = df.columns[0]
         valcolname = df.columns[1]
         nbdata = len(df)
+        st.markdown('Number of data points: {}'.format(nbdata))
         nbmembers_pergroup = st.number_input(
             'Number of data in one group',
             min_value=1,
@@ -72,22 +77,19 @@ elif selected_page == 'Upload File':
             value=5,
             step=1
         )
-        assignments = randomy_assign_groups(nbdata, nbmembers_pergroup)
+        if st.button('Assign!'):
+            assignments = randomy_assign_groups(nbdata, nbmembers_pergroup)
+            df['group'] = assignments
+            response_dict = generate_excel_file(df)
+            url = response_dict['url']
+            st.markdown('[Download Excel]({})'.format(url))
+            st.dataframe(df)
 
-        df['groups'] = assignments
-        api_url = "https://pdihs60tm3.execute-api.us-east-1.amazonaws.com/default/excel_generator_lambda"
-        payload = json.dumps({
-            "dataframe": df.to_dict(orient='list')
-        })
-        headers = {
-            'Content-Type': 'application/json'
-        }
-        response = requests.request("POST", api_url, headers=headers, data=payload)
-        response_dict = json.loads(response.text)
-        print(response.text)
-        url = response_dict['url']
-        st.markdown('[Download Excel]({})'.format(url))
-        st.dataframe(df)
-
+            fig, ax = plt.subplots()
+            ax.scatter(df['group'], df[valcolname])
+            ax.set_xlabel('group')
+            ax.set_ylabel(valcolname)
+            ax.set_xticks(sorted(set(assignments)))
+            st.pyplot(fig)
 else:
     pass
