@@ -42,6 +42,7 @@ def generate_excel_file(df):
 
 
 # Headers
+st.set_page_config(page_title='Mouse Group Assignment')
 st.header('Group Assignment')
 
 selected_page = st.sidebar.selectbox("Select a page", ['Self-input Parameters', 'Upload File'])
